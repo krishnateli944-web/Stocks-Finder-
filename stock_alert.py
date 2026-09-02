@@ -1,98 +1,29 @@
-import requests
-from bs4 import BeautifulSoup
-import os
-from datetime import datetime, timedelta, timezone
+name: Stock Pattern Alert
 
-IST = timezone(timedelta(hours=5, minutes=30))
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-SCAN_CLAUSES = {
-    "VCP / Trend Template Breakout": (
-        "( {cash} ( market cap > 20000 and daily avg true range( 14 ) < 10 days ago avg true range( 14 ) "
-        "and daily avg true range( 14 ) / daily close < 0.08 and daily close > weekly max( 52 , daily close ) * 0.75 "
-        "and daily ema( daily close , 50 ) > daily ema( daily close , 150 ) "
-        "and daily ema( daily close , 150 ) > daily ema( daily close , 200 ) "
-        "and daily close > daily ema( daily close , 50 ) and daily close > 10 "
-        "and daily close * daily volume > 1000000 ) )"
-    ),
-}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-TELEGRAM_MSG_LIMIT = 3500
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
 
+      - name: Run script
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
 
-def get_csrf_and_session():
-    session = requests.Session()
-    resp = session.get(
-        "https://chartink.com/screener/",
-        headers={"User-Agent": "Mozilla/5.0"},
-        timeout=15,
-    )
-    soup = BeautifulSoup(resp.content, "html.parser")
-    token = soup.find("meta", {"name": "csrf-token"})["content"]
-    return session, token
-
-
-def run_scan(session, csrf_token, scan_clause):
-    url = "https://chartink.com/screener/process"
-    headers = {
-        "Referer": "https://chartink.com/screener/",
-        "x-csrf-token": csrf_token,
-        "User-Agent": "Mozilla/5.0",
-    }
-    payload = {"scan_clause": scan_clause}
-    resp = session.post(url, headers=headers, data=payload, timeout=20)
-    resp.raise_for_status()
-    return resp.json().get("data", [])
-
-
-def send_telegram_alert(message: str) -> bool:
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
-    r = requests.post(url, data=payload, timeout=10)
-    return r.ok
-
-
-def send_alerts_batched(lines):
-    header = f"📊 *Chartink Scan Alerts* — {datetime.now(IST).strftime('%d-%b-%Y %H:%M')} IST\n\n"
-    chunk = header
-    for line in lines:
-        if len(chunk) + len(line) > TELEGRAM_MSG_LIMIT:
-            send_telegram_alert(chunk)
-            chunk = ""
-        chunk += line + "\n"
-    if chunk.strip():
-        send_telegram_alert(chunk)
-
-
-def main():
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing")
-        return
-
-    session, csrf = get_csrf_and_session()
-
-    all_lines = []
-    for scan_name, clause in SCAN_CLAUSES.items():
-        try:
-            results = run_scan(session, csrf, clause)
-            if results:
-                all_lines.append(f"*{scan_name}* — {len(results)} match")
-                for stock in results:
-                    sym = stock.get("nsecode", "?")
-                    price = stock.get("close", "?")
-                    pct = stock.get("per_chg", "?")
-                    all_lines.append(f"  • {sym} — ₹{price} ({pct}%)")
-        except Exception as e:
-            print(f"Scan '{scan_name}' fail hua: {e}")
-
-    if all_lines:
-        send_alerts_batched(all_lines)
-        print("Alert bhej diya")
-    else:
-        print("Is run mein koi match nahi mila")
-
-
-if __name__ == "__main__":
-    main()

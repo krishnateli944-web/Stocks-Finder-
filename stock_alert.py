@@ -1,7 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -53,7 +55,7 @@ def send_telegram_alert(message: str) -> bool:
 
 
 def send_alerts_batched(lines):
-    header = f"📊 *Chartink Scan Alerts* — {datetime.now().strftime('%d-%b-%Y %H:%M')}\n\n"
+    header = f"📊 *Chartink Scan Alerts* — {datetime.now(IST).strftime('%d-%b-%Y %H:%M')} IST\n\n"
     chunk = header
     for line in lines:
         if len(chunk) + len(line) > TELEGRAM_MSG_LIMIT:

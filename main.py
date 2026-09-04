@@ -1,7 +1,7 @@
-import requests
-from bs4 import BeautifulSoup
 import os
 from datetime import datetime, timedelta, timezone
+import requests
+from bs4 import BeautifulSoup
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -96,3 +96,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

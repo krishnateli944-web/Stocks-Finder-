@@ -1,0 +1,2 @@
+# Ek line mein ek NSE symbol likho (jaise RELIANCE, TCS)
+# Hermes isi file ko edit karega jab tum "maine X liya/becha" bologe

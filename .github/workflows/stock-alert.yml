@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: '*/15 * * * *'
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   run-script:
     runs-on: ubuntu-latest
@@ -25,5 +29,11 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python main.py
-        
+        run: python main.py --output-json
+
+      - name: Upload raw scan results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-scan-results
+          path: raw_scan_results.json
+          retention-days: 2

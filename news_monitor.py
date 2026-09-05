@@ -1,6 +1,7 @@
 import requests
 import os
 import json
+import argparse
 from datetime import datetime, timedelta, timezone
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -95,6 +96,10 @@ def send_batched(lines):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-json", action="store_true", help="Save raw announcements to JSON file")
+    args = parser.parse_args()
+
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing")
         return
@@ -108,6 +113,12 @@ def main():
     except Exception as e:
         print(f"NSE announcements fetch fail hui: {e}")
         return
+
+    # Save raw announcements for external analysis
+    if args.output_json:
+        with open("raw_announcements.json", "w") as f:
+            json.dump(announcements, f, indent=2)
+        print(f"Saved {len(announcements)} raw announcements to raw_announcements.json")
 
     good_news_lines = []
     bad_news_lines = []

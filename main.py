@@ -1,4 +1,6 @@
 import os
+import argparse
+import json
 from datetime import datetime, timedelta, timezone
 import requests
 from bs4 import BeautifulSoup
@@ -67,6 +69,10 @@ def send_alerts_batched(lines):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-json", action="store_true", help="Save raw scan results to JSON file")
+    args = parser.parse_args()
+
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing")
         return
@@ -74,11 +80,13 @@ def main():
     session, csrf = get_csrf_and_session()
 
     all_lines = []
+    all_results = {}
     for scan_name, clause in SCAN_CLAUSES.items():
         try:
             results = run_scan(session, csrf, clause)
             if results:
                 all_lines.append(f"*{scan_name}* — {len(results)} match")
+                all_results[scan_name] = results
                 for stock in results:
                     sym = stock.get("nsecode", "?")
                     price = stock.get("close", "?")
@@ -86,6 +94,12 @@ def main():
                     all_lines.append(f"  • {sym} — ₹{price} ({pct}%)")
         except Exception as e:
             print(f"Scan '{scan_name}' fail hua: {e}")
+
+    # Save raw results for external analysis
+    if args.output_json:
+        with open("raw_scan_results.json", "w") as f:
+            json.dump(all_results, f, indent=2)
+        print(f"Saved scan results to raw_scan_results.json")
 
     if all_lines:
         send_alerts_batched(all_lines)
